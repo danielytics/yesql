@@ -54,13 +54,14 @@
    - If the query name ends in `!` it will call `clojure.java.jdbc/execute!`,
    - If the query name ends in `<!` it will call `clojure.java.jdbc/insert!`,
    - otherwise `clojure.java.jdbc/query` will be used."
-  [{:keys [name docstring statement]}]
-  (let [split-query (split-at-parameters statement)
+  [{:keys [name docstring statement db-handlers]}]
+  (let [{:keys [insert-db-handler execute-db-handler query-db-handler]} db-handlers
+        split-query (split-at-parameters statement)
         {:keys [query-args display-args function-args]} (split-query->args split-query)
         jdbc-fn (cond
-                 (= [\< \!] (take-last 2 name)) `insert-handler
-                 (= \! (last name)) `execute-handler
-                 :else `jdbc/query)]
+                 (= [\< \!] (take-last 2 name)) (or insert-db-handler `insert-handler)
+                 (= \! (last name)) (or execute-db-handler `execute-handler)
+                 :else (or query-db-handler `jdbc/query))]
     `(def ~(fn-symbol (symbol name) docstring statement display-args)
        (fn [db# ~@function-args]
          (~jdbc-fn db#
